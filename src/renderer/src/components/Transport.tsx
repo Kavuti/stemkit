@@ -93,6 +93,32 @@ function SeekBar({
   )
 }
 
+function SkipButton({
+  seconds,
+  disabled,
+  onSkip
+}: {
+  seconds: number
+  disabled: boolean
+  onSkip: (seconds: number) => void
+}): React.ReactElement {
+  const back = seconds < 0
+  return (
+    <button
+      onClick={() => onSkip(seconds)}
+      disabled={disabled}
+      title={`${back ? 'Back' : 'Forward'} ${Math.abs(seconds)} seconds`}
+      className="no-drag w-9 h-9 rounded-full flex flex-col items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 ${back ? '' : '-scale-x-100'}`}>
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+        <path d="M3 3v5h5" />
+      </svg>
+      <span className="text-[10px] font-mono tabular-nums leading-none mt-0.5">{Math.abs(seconds)}</span>
+    </button>
+  )
+}
+
 export function Transport({
   playing,
   duration,
@@ -105,22 +131,33 @@ export function Transport({
   onMaster,
   youtubeUrl
 }: Props): React.ReactElement {
+  // onSeek clamps to the track bounds, so no need to guard here
+  const skip = (seconds: number): void => onSeek(getPosition() + seconds)
+
   return (
     <div className="glass rounded-2xl px-5 py-4 mt-4 flex flex-col gap-4">
       <SeekBar duration={duration} getPosition={getPosition} onSeek={onSeek} playing={playing} />
 
       <div className="flex items-center justify-between">
-        <button
-          onClick={onTogglePlay}
-          disabled={duration === 0}
-          className="no-drag w-11 h-11 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-violet-500/20 disabled:opacity-40 disabled:hover:scale-100"
-        >
-          {playing ? (
-            <PauseIcon className="w-5 h-5" />
-          ) : (
-            <PlayIcon className="w-5 h-5 -translate-x-px" />
-          )}
-        </button>
+        <div className="flex items-center gap-1.5">
+          {[-15, -5].map((s) => (
+            <SkipButton key={s} seconds={s} disabled={duration === 0} onSkip={skip} />
+          ))}
+          <button
+            onClick={onTogglePlay}
+            disabled={duration === 0}
+            className="no-drag w-11 h-11 mx-1 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-violet-500/20 disabled:opacity-40 disabled:hover:scale-100"
+          >
+            {playing ? (
+              <PauseIcon className="w-5 h-5" />
+            ) : (
+              <PlayIcon className="w-5 h-5 -translate-x-px" />
+            )}
+          </button>
+          {[5, 15].map((s) => (
+            <SkipButton key={s} seconds={s} disabled={duration === 0} onSkip={skip} />
+          ))}
+        </div>
 
         <div className="no-drag flex items-center gap-1 bg-white/5 rounded-full p-1">
           {PRESETS.map((p) => (
