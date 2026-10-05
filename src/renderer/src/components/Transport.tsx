@@ -93,28 +93,54 @@ function SeekBar({
   )
 }
 
+const SKIP_STEP = 5
+const SKIP_STEP_SHIFT = 15
+
+// tracks whether Shift is held, so the skip buttons can show the bigger step
+function useShiftHeld(): boolean {
+  const [held, setHeld] = useState(false)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => setHeld(e.shiftKey)
+    // keyup is lost if Shift is released while the window is unfocused
+    const onBlur = (): void => setHeld(false)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKey)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKey)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [])
+  return held
+}
+
 function SkipButton({
-  seconds,
+  direction,
+  shiftHeld,
   disabled,
   onSkip
 }: {
-  seconds: number
+  direction: -1 | 1
+  shiftHeld: boolean
   disabled: boolean
   onSkip: (seconds: number) => void
 }): React.ReactElement {
-  const back = seconds < 0
+  const back = direction < 0
+  const seconds = shiftHeld ? SKIP_STEP_SHIFT : SKIP_STEP
   return (
     <button
-      onClick={() => onSkip(seconds)}
+      // read Shift from the click itself, in case the keyboard state went stale
+      onClick={(e) => onSkip(direction * (e.shiftKey ? SKIP_STEP_SHIFT : SKIP_STEP))}
       disabled={disabled}
-      title={`${back ? 'Back' : 'Forward'} ${Math.abs(seconds)} seconds`}
+      title={`${back ? 'Back' : 'Forward'} ${seconds} seconds (Shift: ${SKIP_STEP_SHIFT})`}
       className="no-drag w-9 h-9 rounded-full flex flex-col items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 ${back ? '' : '-scale-x-100'}`}>
         <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
         <path d="M3 3v5h5" />
       </svg>
-      <span className="text-[10px] font-mono tabular-nums leading-none mt-0.5">{Math.abs(seconds)}</span>
+      <span className="text-[10px] font-mono tabular-nums leading-none mt-0.5">{seconds}</span>
     </button>
   )
 }
@@ -133,6 +159,7 @@ export function Transport({
 }: Props): React.ReactElement {
   // onSeek clamps to the track bounds, so no need to guard here
   const skip = (seconds: number): void => onSeek(getPosition() + seconds)
+  const shiftHeld = useShiftHeld()
 
   return (
     <div className="glass rounded-2xl px-5 py-4 mt-4 flex flex-col gap-4">
@@ -140,9 +167,7 @@ export function Transport({
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          {[-15, -5].map((s) => (
-            <SkipButton key={s} seconds={s} disabled={duration === 0} onSkip={skip} />
-          ))}
+          <SkipButton direction={-1} shiftHeld={shiftHeld} disabled={duration === 0} onSkip={skip} />
           <button
             onClick={onTogglePlay}
             disabled={duration === 0}
@@ -154,9 +179,7 @@ export function Transport({
               <PlayIcon className="w-5 h-5 -translate-x-px" />
             )}
           </button>
-          {[5, 15].map((s) => (
-            <SkipButton key={s} seconds={s} disabled={duration === 0} onSkip={skip} />
-          ))}
+          <SkipButton direction={1} shiftHeld={shiftHeld} disabled={duration === 0} onSkip={skip} />
         </div>
 
         <div className="no-drag flex items-center gap-1 bg-white/5 rounded-full p-1">
